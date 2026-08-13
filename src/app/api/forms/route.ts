@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs';
-import { z } from 'zod';
 import { supabaseAdmin } from '@/lib/supabase';
 import { validateRoutingNumber, validateNACHACompliance } from '@/lib/validation';
 import { sendFormSubmissionEmail, sendAdminNotification } from '@/lib/email';
