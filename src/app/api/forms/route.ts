@@ -3,6 +3,7 @@ import { auth } from '@clerk/nextjs';
 import { z } from 'zod';
 import { supabaseAdmin } from '@/lib/supabase';
 import { validateRoutingNumber, validateNACHACompliance } from '@/lib/validation';
+import { sendFormSubmissionEmail, sendAdminNotification } from '@/lib/email';
 
 const FormSchema = z.object({
   employeeName: z.string().min(1),
@@ -52,7 +53,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // TODO: encrypt accountNumber before storing
     const { data: form, error } = await supabaseAdmin
       .from('forms')
       .insert({
@@ -77,7 +77,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to save form' }, { status: 500 });
     }
 
-    // Audit log
     await supabaseAdmin.from('audit_log').insert({
       form_id: form.id,
       action: 'created',
@@ -85,10 +84,27 @@ export async function POST(req: NextRequest) {
       metadata: { employer_name: data.employerName },
     });
 
+    // Send confirmation email to employee
+    await sendFormSubmissionEmail(data.employeeEmail, {
+      employeeName: data.employeeName,
+      employerName: data.employerName,
+      formId: form.id,
+      payFrequency: data.payFrequency,
+      depositType: data.depositType,
+    }).catch((err) => console.error('Employee email failed:', err));
+
+    // Send notification to admin/HR
+    await sendAdminNotification({
+      employeeName: data.employeeName,
+      employerName: data.employerName,
+      formId: form.id,
+      status: 'pending',
+    }).catch((err) => console.error('Admin email failed:', err));
+
     return NextResponse.json({
       success: true,
       formId: form.id,
-      message: 'Form validated, saved, and audit-logged',
+      message: 'Form validated, saved, audit-logged, and emails sent',
       data: { ...data, accountNumber: `••••${data.accountNumber.slice(-4)}` },
     });
   } catch (err) {

@@ -20,7 +20,8 @@
     "react-pdf": "9.1.0",
     "plaid": "30.0.0",
     "clsx": "2.1.1",
-    "tailwind-merge": "2.4.0"
+    "tailwind-merge": "2.4.0",
+    "resend": "4.0.0"
   },
   "devDependencies": {
     "typescript": "5.5.4",
