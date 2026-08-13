@@ -1,0 +1,15 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --navy: #0A2540;
+  --navy-2: #1A1A2E;
+  --green: #00D4AA;
+}
+
+body {
+  background: linear-gradient(135deg, var(--navy) 0%, var(--navy-2) 100%);
+  color: #E6E9F0;
+  min-height: 100vh;
+}
