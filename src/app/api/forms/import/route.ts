@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs';
+import { auth } from '@clerk/nextjs/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { validateRoutingNumber } from '@/lib/validation';
 import { sendFormSubmissionEmail } from '@/lib/email';

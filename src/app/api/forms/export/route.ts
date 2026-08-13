@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs';
+import { auth } from '@clerk/nextjs/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { generateDirectDepositPDF } from '@/lib/pdf';
 
@@ -60,6 +60,6 @@ export async function GET(req: NextRequest) {
     });
   } catch (err) {
     console.error('PDF export error:', err);
-    return NextResponse.json({ error: 'Failed to generate PDF' }, { status: 500 });
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

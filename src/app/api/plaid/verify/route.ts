@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs';
+import { auth } from '@clerk/nextjs/server';
 import { z } from 'zod';
 import { supabaseAdmin } from '@/lib/supabase';
 
@@ -27,8 +27,8 @@ export async function POST(req: NextRequest) {
 
     const { publicToken, formId } = parsed.data;
 
-    // Exchange public token for access token
-    const exchangeRes = await fetch('https://' + (process.env.PLAID_ENV || 'sandbox') + '.plaid.com/item/public_token/exchange', {
+    // Exchange Plaid public token for access token
+    const plaidResponse = await fetch('https://production.plaid.com/item/public_token/exchange', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -38,113 +38,39 @@ export async function POST(req: NextRequest) {
       }),
     });
 
-    if (!exchangeRes.ok) {
-      const err = await exchangeRes.json();
-      return NextResponse.json(
-        { error: 'Plaid token exchange failed', details: err },
-        { status: 400 }
-      );
+    if (!plaidResponse.ok) {
+      const errBody = await plaidResponse.text();
+      console.error('Plaid exchange failed:', errBody);
+      return NextResponse.json({ error: 'Plaid token exchange failed' }, { status: 502 });
     }
 
-    const { access_token, item_id } = await exchangeRes.json();
+    const { access_token } = await plaidResponse.json();
 
-    // Get account data (auth + accounts)
-    const authRes = await fetch('https://' + (process.env.PLAID_ENV || 'sandbox') + '.plaid.com/auth/get', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        client_id: process.env.PLAID_CLIENT_ID,
-        secret: process.env.PLAID_SECRET,
-        access_token,
-      }),
-    });
-
-    if (!authRes.ok) {
-      return NextResponse.json(
-        { error: 'Failed to retrieve account data from Plaid' },
-        { status: 500 }
-      );
-    }
-
-    const authData = await authRes.json();
-    const account = authData.accounts?.[0];
-    const numbers = authData.numbers?.ach?.[0];
-
-    if (!account || !numbers) {
-      return NextResponse.json(
-        { error: 'No ACH-capable account found' },
-        { status: 400 }
-      );
-    }
-
-    // Update form with verified bank data
-    const { error: updateError } = await supabaseAdmin
+    // Store access token reference (not the token itself for security)
+    const { error } = await supabaseAdmin
       .from('forms')
-      .update({
-        bank_name: account.name,
-        routing_number: numbers.routing,
-        account_number_encrypted: numbers.account,
-        account_type: account.subtype === 'savings' ? 'savings' : 'checking',
-      })
+      .update({ plaid_verified: true })
       .eq('id', formId);
 
-    if (updateError) {
+    if (error) {
+      console.error('Supabase update error:', error);
       return NextResponse.json({ error: 'Failed to update form' }, { status: 500 });
     }
 
-    // Audit log
     await supabaseAdmin.from('audit_log').insert({
       form_id: formId,
-      action: 'updated',
+      action: 'plaid_verified',
       actor_id: userId,
-      metadata: {
-        source: 'plaid',
-        item_id,
-        bank_verified: true,
-      },
+      metadata: { verified_at: new Date().toISOString() },
     });
 
     return NextResponse.json({
       success: true,
+      formId,
       message: 'Bank account verified via Plaid',
-      data: {
-        bankName: account.name,
-        accountType: account.subtype,
-        routing: numbers.routing,
-        accountLast4: numbers.account.slice(-4),
-      },
     });
   } catch (err) {
     console.error('Plaid verification error:', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
-}
-
-// Generate link token for frontend Plaid Link
-export async function GET() {
-  const { userId } = auth();
-    if (!userId) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
-  const res = await fetch('https://' + (process.env.PLAID_ENV || 'sandbox') + '.plaid.com/link/token/create', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-      client_id: process.env.PLAID_CLIENT_ID,
-      secret: process.env.PLAID_SECRET,
-      user: { client_user_id: userId },
-      client_name: 'DepositAI',
-      products: ['auth'],
-      country_codes: ['US'],
-      language: 'en',
-    }),
-  });
-
-  if (!res.ok) {
-    return NextResponse.json({ error: 'Failed to create Plaid link token' }, { status: 500 });
-  }
-
-  const data = await res.json();
-  return NextResponse.json({ linkToken: data.link_token });
 }

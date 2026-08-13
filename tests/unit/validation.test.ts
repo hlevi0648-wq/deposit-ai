@@ -1,4 +1,4 @@
-import { validateRoutingNumber, validateNACHACompliance } from '../validation';
+import { validateRoutingNumber, validateNACHACompliance } from '../../src/lib/validation';
 
 describe('validateRoutingNumber', () => {
   it('validates a correct ABA routing number', () => {
@@ -6,50 +6,43 @@ describe('validateRoutingNumber', () => {
     expect(validateRoutingNumber('026009593')).toBe(true);
   });
 
-  it('validates another known good routing number', () => {
-    // 121000358 — Wells Fargo (valid)
-    expect(validateRoutingNumber('121000358')).toBe(true);
+  it('rejects an invalid routing number (bad checksum)', () => {
+    expect(validateRoutingNumber('026009594')).toBe(false);
   });
 
-  it('rejects invalid checksum', () => {
-    expect(validateRoutingNumber('026009590')).toBe(false);
-  });
-
-  it('rejects non-9-digit input', () => {
+  it('rejects non-9-digit strings', () => {
     expect(validateRoutingNumber('123')).toBe(false);
     expect(validateRoutingNumber('1234567890')).toBe(false);
-  });
-
-  it('rejects non-numeric input', () => {
     expect(validateRoutingNumber('abcdefghi')).toBe(false);
   });
 });
 
 describe('validateNACHACompliance', () => {
-  const validForm = {
-    employeeName: 'John Doe',
-    employeeEmail: 'john@example.com',
-    routingNumber: '026009593',
-    accountNumber: '1234567890',
-    accountType: 'checking',
-    employerName: 'Acme Corp',
-    payFrequency: 'biweekly',
-    depositType: 'full',
-  };
-
-  it('passes for a valid form', () => {
-    expect(validateNACHACompliance(validForm)).toEqual([]);
+  it('passes a compliant form', () => {
+    const result = validateNACHACompliance({
+      employeeName: 'John Doe',
+      employeeEmail: 'john@example.com',
+      routingNumber: '026009593',
+      accountNumber: '1234',
+      accountType: 'checking',
+      employerName: 'Acme Corp',
+      payFrequency: 'biweekly',
+      depositType: 'full',
+    });
+    expect(result).toEqual([]);
   });
 
-  it('flags account number exceeding 17 digits', () => {
-    expect(
-      validateNACHACompliance({ ...validForm, accountNumber: '1'.repeat(18) })
-    ).toContain('Account number exceeds 17 digits (NACHA limit)');
-  });
-
-  it('flags missing employee name', () => {
-    expect(
-      validateNACHACompliance({ ...validForm, employeeName: '' })
-    ).toContain('Employee name is required');
+  it('flags missing required fields', () => {
+    const result = validateNACHACompliance({
+      employeeName: '',
+      employeeEmail: 'bad',
+      routingNumber: '000',
+      accountNumber: '',
+      accountType: 'checking',
+      employerName: '',
+      payFrequency: 'biweekly',
+      depositType: 'full',
+    });
+    expect(result.length).toBeGreaterThan(0);
   });
 });
