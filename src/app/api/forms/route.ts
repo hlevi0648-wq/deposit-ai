@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@clerk/nextjs';
 import { z } from 'zod';
+import { supabaseAdmin } from '@/lib/supabase';
+import { validateRoutingNumber, validateNACHACompliance } from '@/lib/validation';
 
 const FormSchema = z.object({
   employeeName: z.string().min(1),
@@ -15,16 +18,13 @@ const FormSchema = z.object({
   depositType: z.enum(['full', 'percent', 'fixed']),
 });
 
-// ABA routing number checksum
-function validateRoutingChecksum(routing: string): boolean {
-  if (routing.length !== 9) return false;
-  const d = routing.split('').map(Number);
-  const sum = 3 * (d[0] + d[3] + d[6]) + 7 * (d[1] + d[4] + d[7]) + 1 * (d[2] + d[5] + d[8]);
-  return sum % 10 === 0;
-}
-
 export async function POST(req: NextRequest) {
   try {
+    const { userId } = auth();
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const body = await req.json();
     const parsed = FormSchema.safeParse(body);
 
@@ -37,36 +37,81 @@ export async function POST(req: NextRequest) {
 
     const data = parsed.data;
 
-    // Validate routing number checksum
-    if (!validateRoutingChecksum(data.routingNumber)) {
+    if (!validateRoutingNumber(data.routingNumber)) {
       return NextResponse.json(
         { error: 'Invalid routing number — failed ABA checksum' },
         { status: 400 }
       );
     }
 
-    // TODO: Save to Supabase
-    // TODO: Log to audit trail
-    // TODO: Generate PDF
+    const nachaErrors = validateNACHACompliance(data);
+    if (nachaErrors.length > 0) {
+      return NextResponse.json(
+        { error: 'NACHA compliance issues', details: nachaErrors },
+        { status: 400 }
+      );
+    }
+
+    // TODO: encrypt accountNumber before storing
+    const { data: form, error } = await supabaseAdmin
+      .from('forms')
+      .insert({
+        employee_name: data.employeeName,
+        employee_email: data.employeeEmail,
+        bank_name: data.bankName,
+        routing_number: data.routingNumber,
+        account_number_encrypted: data.accountNumber,
+        account_type: data.accountType,
+        employer_name: data.employerName,
+        employer_id_text: data.employerId,
+        pay_frequency: data.payFrequency,
+        deposit_amount: data.depositAmount,
+        deposit_type: data.depositType,
+        status: 'pending',
+      })
+      .select('id')
+      .single();
+
+    if (error) {
+      console.error('Supabase error:', error);
+      return NextResponse.json({ error: 'Failed to save form' }, { status: 500 });
+    }
+
+    // Audit log
+    await supabaseAdmin.from('audit_log').insert({
+      form_id: form.id,
+      action: 'created',
+      actor_id: userId,
+      metadata: { employer_name: data.employerName },
+    });
 
     return NextResponse.json({
       success: true,
-      formId: `form_${Date.now()}`,
-      message: 'Form validated and saved',
-      data: {
-        ...data,
-        accountNumber: `••••${data.accountNumber.slice(-4)}`,
-      },
+      formId: form.id,
+      message: 'Form validated, saved, and audit-logged',
+      data: { ...data, accountNumber: `••••${data.accountNumber.slice(-4)}` },
     });
   } catch (err) {
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    console.error('Form submission error:', err);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
 export async function GET() {
-  // TODO: Fetch from Supabase
-  return NextResponse.json({ forms: [] });
+  const { userId } = auth();
+  if (!userId) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from('forms')
+    .select('id, employee_name, employer_name, status, created_at, submitted_at')
+    .order('created_at', { ascending: false })
+    .limit(50);
+
+  if (error) {
+    return NextResponse.json({ error: 'Failed to fetch forms' }, { status: 500 });
+  }
+
+  return NextResponse.json({ forms: data || [] });
 }
