@@ -15,19 +15,19 @@
     "test": "npm run test:unit && npm run test:e2e"
   },
   "dependencies": {
-    "next": "14.2.5",
+    "next": "14.2.35",
     "react": "18.3.1",
     "react-dom": "18.3.1",
-    "openai": "1.42.0",
+    "openai": "4.77.0",
     "zod": "3.23.8",
-    "@clerk/nextjs": "5.3.0",
-    "@supabase/supabase-js": "2.45.0",
-    "react-pdf": "9.1.0",
-    "plaid": "30.0.0",
+    "@clerk/nextjs": "7.7.5",
+    "@supabase/supabase-js": "2.112.3",
+    "react-pdf": "10.4.1",
+    "plaid": "45.0.0",
     "clsx": "2.1.1",
     "tailwind-merge": "2.4.0",
-    "resend": "4.0.0",
-    "twilio": "5.3.0",
+    "resend": "6.20.0",
+    "twilio": "6.1.0",
     "pdf-lib": "1.17.1"
   },
   "devDependencies": {

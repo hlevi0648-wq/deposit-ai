@@ -19,7 +19,7 @@ interface CSVRow {
   depositType: 'full' | 'percent' | 'fixed';
 }
 
-function parseCSV(text: string): CSVRow[] {
+export function parseCSV(text: string): CSVRow[] {
   const lines = text.trim().split(/\r?\n/).filter(Boolean);
   if (lines.length < 2) throw new Error('CSV must have a header row and at least one data row');
 
@@ -109,7 +109,6 @@ export async function POST(req: NextRequest) {
           metadata: { source: 'csv_import', row: i + 2 },
         });
 
-        // Fire and forget email
         sendFormSubmissionEmail(row.employeeEmail, {
           employeeName: row.employeeName,
           employerName: row.employerName,
