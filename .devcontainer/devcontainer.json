@@ -1,0 +1,44 @@
+{
+  "name": "DepositAI Dev",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:20",
+  "features": {
+    "ghcr.io/devcontainers/features/github-cli:1": {}
+  },
+  "forwardPorts": [3000],
+  "portsAttributes": {
+    "3000": {
+      "label": "Next.js Dev",
+      "onAutoForward": "openPreview"
+    }
+  },
+  "postCreateCommand": "npm install",
+  "postStartCommand": "npm run dev",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "bradlc.vscode-tailwindcss",
+        "ms-vscode.vscode-typescript-next"
+      ],
+      "settings": {
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+      }
+    }
+  },
+  "remoteEnv": {
+    "NEXT_PUBLIC_SUPABASE_URL": "${localEnv:NEXT_PUBLIC_SUPABASE_URL}",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "${localEnv:NEXT_PUBLIC_SUPABASE_ANON_KEY}",
+    "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY": "${localEnv:NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}",
+    "OPENAI_API_KEY": "${localEnv:OPENAI_API_KEY}",
+    "SUPABASE_SERVICE_ROLE_KEY": "${localEnv:SUPABASE_SERVICE_ROLE_KEY}",
+    "CLERK_SECRET_KEY": "${localEnv:CLERK_SECRET_KEY}",
+    "RESEND_API_KEY": "${localEnv:RESEND_API_KEY}",
+    "TWILIO_ACCOUNT_SID": "${localEnv:TWILIO_ACCOUNT_SID}",
+    "TWILIO_AUTH_TOKEN": "${localEnv:TWILIO_AUTH_TOKEN}",
+    "TWILIO_PHONE_NUMBER": "${localEnv:TWILIO_PHONE_NUMBER}",
+    "PLAID_CLIENT_ID": "${localEnv:PLAID_CLIENT_ID}",
+    "PLAID_SECRET": "${localEnv:PLAID_SECRET}"
+  }
+}
