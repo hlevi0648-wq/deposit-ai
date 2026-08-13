@@ -31,7 +31,6 @@ export async function POST(req: NextRequest) {
     const { formId, action, note } = parsed.data;
     const newStatus = action === 'approve' ? 'approved' : 'rejected';
 
-    // Fetch form
     const { data: form, error: fetchError } = await supabaseAdmin
       .from('forms')
       .select('id, employee_name, employee_email, status, employer_name')
@@ -49,7 +48,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Update status
     const { error: updateError } = await supabaseAdmin
       .from('forms')
       .update({
@@ -63,7 +61,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to update form' }, { status: 500 });
     }
 
-    // Audit log
     await supabaseAdmin.from('audit_log').insert({
       form_id: formId,
       action: action === 'approve' ? 'approved' : 'rejected',
@@ -71,14 +68,10 @@ export async function POST(req: NextRequest) {
       metadata: { note, previous_status: form.status },
     });
 
-    // Send notifications (only on approve)
     if (action === 'approve') {
       await sendApprovalEmail(form.employee_email, form.employee_name, formId).catch((err) =>
         console.error('Approval email failed:', err)
       );
-
-      // SMS if phone on file (future: add phone field)
-      // await sendApprovalSMS(phone, form.employee_name).catch(...)
     }
 
     return NextResponse.json({

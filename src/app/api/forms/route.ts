@@ -86,7 +86,6 @@ export async function POST(req: NextRequest) {
       metadata: { employer_name: data.employerName },
     });
 
-    // Send confirmation email to employee
     await sendFormSubmissionEmail(data.employeeEmail, {
       employeeName: data.employeeName,
       employerName: data.employerName,
@@ -95,7 +94,6 @@ export async function POST(req: NextRequest) {
       depositType: data.depositType,
     }).catch((err) => console.error('Employee email failed:', err));
 
-    // Send notification to admin/HR
     await sendAdminNotification({
       employeeName: data.employeeName,
       employerName: data.employerName,
@@ -103,7 +101,6 @@ export async function POST(req: NextRequest) {
       status: 'pending',
     }).catch((err) => console.error('Admin email failed:', err));
 
-    // Send SMS if phone provided
     if (data.employeePhone) {
       await sendFormSubmissionSMS(data.employeePhone, data.employeeName, data.employerName).catch((err) =>
         console.error('SMS failed:', err)
