@@ -4,10 +4,12 @@ import { z } from 'zod';
 import { supabaseAdmin } from '@/lib/supabase';
 import { validateRoutingNumber, validateNACHACompliance } from '@/lib/validation';
 import { sendFormSubmissionEmail, sendAdminNotification } from '@/lib/email';
+import { sendFormSubmissionSMS } from '@/lib/twilio';
 
 const FormSchema = z.object({
   employeeName: z.string().min(1),
   employeeEmail: z.string().email(),
+  employeePhone: z.string().optional(),
   bankName: z.string().optional(),
   routingNumber: z.string().length(9).regex(/^\d{9}$/),
   accountNumber: z.string().min(4),
@@ -101,10 +103,17 @@ export async function POST(req: NextRequest) {
       status: 'pending',
     }).catch((err) => console.error('Admin email failed:', err));
 
+    // Send SMS if phone provided
+    if (data.employeePhone) {
+      await sendFormSubmissionSMS(data.employeePhone, data.employeeName, data.employerName).catch((err) =>
+        console.error('SMS failed:', err)
+      );
+    }
+
     return NextResponse.json({
       success: true,
       formId: form.id,
-      message: 'Form validated, saved, audit-logged, and emails sent',
+      message: 'Form validated, saved, audit-logged, emails + SMS sent',
       data: { ...data, accountNumber: `••••${data.accountNumber.slice(-4)}` },
     });
   } catch (err) {
